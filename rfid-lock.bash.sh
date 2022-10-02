@@ -23,11 +23,15 @@ PREFIXES="
 # OpenWRT hack: this is the device which effects a GPIO for the door actuator
 GPIO_DEV="/sys/class/leds/red:broadband/brightness"
 
+# Get the API keys. The following are expected to be set:
+#   API_KEY:     the BBMS API key
+#   DEVICE_NAME: the BBMS device name
+#   DISCORD_URL: the Discord POST URL
+source /root/keys
 
-# TODO: replace these values with the real BBMS device name and API Key!
-DEVICE_NAME=my_device
-API_KEY=my_api_key
-
+# Source the previous key cache:
+KEY_CACHE="/root/bbms-key-cache"
+source ${KEY_CACHE} || true
 
 
 # POST a file to the server and store the result in RTN
@@ -56,6 +60,14 @@ function contact_server
     printf 'bert:  "%s" (code: %s, OFFLINE:%s)\n' "${RTN}" "${RESPONSE_OK}" "${OFFLINE}"
 }
 
+function post_discord
+{
+    wget -q -O- \
+        --post-data="{ \"content\": \"$1 is in the space!\" }" \
+        --header="Content-Type:application/json" \
+        ${DISCORD_URL}
+}
+
 # extract a quoted string value for a given key from RTN
 function get_string
 {
@@ -67,10 +79,11 @@ function get_number
 {
     grep -Po "\"$1\":[0-9]*?[,}]" <<<${RTN} | head -c-2 | cut -d: -f2
 }
+
 # append a two digit sum to the end of the given number and print as hex
 function append_checksum
 {
-    n=$( printf "%x" "$1" )
+    n=$( printf "%010x" "$1" )
     i=0
     sum=0
     while [ $i -lt ${#n} ]; do
@@ -88,6 +101,11 @@ function open_door
     echo "0" > "${GPIO_DEV}"
 }
 
+function sync_cache
+{
+    env | sed -n 's/^CACHE_/export CACHE_/p' > ${KEY_CACHE}
+}
+
 # inform server of our start up
 contact_server node/boot
 
@@ -102,6 +120,7 @@ while true; do
             # not cached - try spamming server with all known prefixes
             for PREFIX in ${PREFIXES}; do
                 T=$( append_checksum $(( 16#${PREFIX} + 10#${KEY_CODE} )) )
+                #contact_server "{\"service\":\"entry\", \"device\":\"neil-test\", \"message\":\"lookup\", \"tag\":\"${T}\"}"
                 contact_server activity "{\"tagId\":\"${T}\", \"device\":\"${DEVICE_NAME}\", \"occuredAt\":\"$(date +%s)\"}"
                 # if the server is down, just give up now
                 if [ -n "${OFFLINE}" ]; then
@@ -110,16 +129,19 @@ while true; do
                 fi
                 if [ -n "${RESPONSE_OK}" ]; then
                     # found it - cache this value for next time
-                    eval "CACHE_${KEY_CODE}=${T}"
+                    MEMBER_NAME="$(get_string name)"
+                    eval "export CACHE_${KEY_CODE}=${T}"
                     echo caching "CACHE_${KEY_CODE}=${T}"
-                    open_door "$(get_string name)"
+                    sync_cache
+                    open_door "${MEMBER_NAME}"
+                    post_discord "${MEMBER_NAME}"
                     break
                 else
                     echo access denied
                 fi
             done
         else
-            echo I know you...
+            echo I know you ${KEY_CODE}...
             # key is in cache. if server was not up recently, grant access immediately
             if [ -n "$OFFLINE" ]; then
                 open_door ${LONG_FORM}
@@ -129,7 +151,9 @@ while true; do
                 # otherwise check with the server first
                 contact_server activity "{\"tagId\":\"${LONG_FORM}\", \"device\":\"${DEVICE_NAME}\", \"occuredAt\":\"$(date +%s)\"}"
                 if [ -n "${RESPONSE_OK}" ]; then
+                    MEMBER_NAME="$(get_string name)"
                     open_door ${LONG_FORM}
+                    post_discord "${MEMBER_NAME}"
                 else
                     echo access denied
                 fi
@@ -137,8 +161,9 @@ while true; do
             # if the server said no, then remove key from cache
             if ! [ -n "${RESPONSE_OK}" ] && ! [ -n "${OFFLINE}" ]; then
                 echo access revoked!
-                eval unset CACHE_${KEY_CODE}
+                eval "unset CACHE_${KEY_CODE}"
                 echo uncaching "CACHE_${KEY_CODE}"
+                sync_cache
             fi
         fi
     else
