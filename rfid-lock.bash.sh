@@ -90,7 +90,7 @@ function append_checksum
         sum=$(( ${sum} ^ 16#${n:$i:2} ))
         i=$(( ${i} + 2 ))
     done
-    printf "%X%02X\n" "$1" $sum
+    printf "%010X%02X\n" "$1" $sum
 }
 
 function open_door
