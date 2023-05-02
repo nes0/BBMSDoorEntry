@@ -158,7 +158,7 @@ while true; do
                 open_door ${LONG_FORM}
                 # then do a courtesy check with server
                 contact_server activity "{\"tagId\":\"${LONG_FORM}\", \"device\":\"${DEVICE_NAME}\", \"occurredAt\":\"$(date +%s)\"}"
-                post_discord "key fob #${KEY_CODE}"
+                post_discord "key fob #*******${KEY_CODE:7:3}"
             else
                 # otherwise check with the server first
                 contact_server activity "{\"tagId\":\"${LONG_FORM}\", \"device\":\"${DEVICE_NAME}\", \"occurredAt\":\"$(date +%s)\"}"
