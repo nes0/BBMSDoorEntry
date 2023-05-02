@@ -56,8 +56,8 @@ function contact_server
         unset OFFLINE
     fi
 
-    printf 'ernie: "%s" > "%s"\n' "$@" ${URL_PART}
-    printf 'bert:  "%s" (code: %s, OFFLINE:%s)\n' "${RTN}" "${RESPONSE_OK}" "${OFFLINE}"
+    printf '"%s" << "%s"\n' ${URL_PART} "$@"
+    printf '.. "%s" (%s, %s)\n' "${RTN}" "${RESPONSE_OK}" "${OFFLINE}"
 }
 
 function post_discord
@@ -121,7 +121,7 @@ while true; do
             for PREFIX in ${PREFIXES}; do
                 T=$( append_checksum $(( 16#${PREFIX} + 10#${KEY_CODE} )) )
                 #contact_server "{\"service\":\"entry\", \"device\":\"neil-test\", \"message\":\"lookup\", \"tag\":\"${T}\"}"
-                contact_server activity "{\"tagId\":\"${T}\", \"device\":\"${DEVICE_NAME}\", \"occuredAt\":\"$(date +%s)\"}"
+                contact_server activity "{\"tagId\":\"${T}\", \"device\":\"${DEVICE_NAME}\", \"occurredAt\":\"$(date +%s)\"}"
                 # if the server is down, just give up now
                 if [ -n "${OFFLINE}" ]; then
                     echo Server is down. So sorry, can\'t grant access right now
@@ -146,10 +146,10 @@ while true; do
             if [ -n "$OFFLINE" ]; then
                 open_door ${LONG_FORM}
                 # then do a courtesy check with server
-                contact_server activity "{\"tagId\":\"${LONG_FORM}\", \"device\":\"${DEVICE_NAME}\", \"occuredAt\":\"$(date +%s)\"}"
+                contact_server activity "{\"tagId\":\"${LONG_FORM}\", \"device\":\"${DEVICE_NAME}\", \"occurredAt\":\"$(date +%s)\"}"
             else
                 # otherwise check with the server first
-                contact_server activity "{\"tagId\":\"${LONG_FORM}\", \"device\":\"${DEVICE_NAME}\", \"occuredAt\":\"$(date +%s)\"}"
+                contact_server activity "{\"tagId\":\"${LONG_FORM}\", \"device\":\"${DEVICE_NAME}\", \"occurredAt\":\"$(date +%s)\"}"
                 if [ -n "${RESPONSE_OK}" ]; then
                     MEMBER_NAME="$(get_string name)"
                     open_door ${LONG_FORM}
@@ -170,7 +170,7 @@ while true; do
         test $(( ${LOOP_TIME} + ${HEARTBEAT_RATE} )) -gt "$(date +%s)" && exit 1
 
         # timed out whilst waiting - send a heartbeat
-        echo Idle for $((${HEARTBEAT_RATE} / 60)) mins - sending a heartbeat message to server
+        # echo Idle for $((${HEARTBEAT_RATE} / 60)) mins - sending a heartbeat message to server
         contact_server node/heartbeat
     fi
 done
