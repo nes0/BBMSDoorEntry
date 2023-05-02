@@ -40,21 +40,32 @@ function contact_server
 {
     URL_PART="$1"
     shift
-    RTN=$( wget -q -O- --post-data="$@" \
+    RTN=$( wget -q -o- --post-data="$@" \
         --header="Content-Type:application/json" \
         --header="Accept: application/json" \
         --header="ApiKey: ${API_KEY}" \
+        --server-response \
         https://bbms.buildbrighton.com/acs/${URL_PART} \
-    ) && RESPONSE_OK=1 || unset RESPONSE_OK
-    if [ -z "${RESPONSE_OK}" ]; then
+        | sed -n 's|.*HTTP/[^ ]* \([0-9]*\).*|\1|p'
+    )
+    unset RESPONSE_OK
+    OFFLINE=1
+
+    case "${RTN}" in
+    2*)
+        RESPONSE_OK=1
+        ;;
+    4*)
+        unset OFFLINE
+        ;;
+    5*)
+        ;;
+    *)
         if ncat -z bbms.buildbrighton.com 443 2>/dev/null; then
             unset OFFLINE
-        else
-            OFFLINE=1
         fi
-    else
-        unset OFFLINE
-    fi
+        ;;
+    esac
 
     printf '"%s" << "%s"\n' ${URL_PART} "$@"
     printf '.. "%s" (%s, %s)\n' "${RTN}" "${RESPONSE_OK}" "${OFFLINE}"
@@ -147,6 +158,7 @@ while true; do
                 open_door ${LONG_FORM}
                 # then do a courtesy check with server
                 contact_server activity "{\"tagId\":\"${LONG_FORM}\", \"device\":\"${DEVICE_NAME}\", \"occurredAt\":\"$(date +%s)\"}"
+                post_discord "key fob #${KEY_CODE}"
             else
                 # otherwise check with the server first
                 contact_server activity "{\"tagId\":\"${LONG_FORM}\", \"device\":\"${DEVICE_NAME}\", \"occurredAt\":\"$(date +%s)\"}"
