@@ -40,20 +40,22 @@ function contact_server
 {
     URL_PART="$1"
     shift
-    RTN=$( wget -q -o- --post-data="$@" \
+    RTN=$( wget -q -O- --post-data="$@" \
         --header="Content-Type:application/json" \
         --header="Accept: application/json" \
         --header="ApiKey: ${API_KEY}" \
         --server-response \
-        https://bbms.buildbrighton.com/acs/${URL_PART} \
-        | sed -n 's|.*HTTP/[^ ]* \([0-9]*\).*|\1|p'
+        https://bbms.buildbrighton.com/acs/${URL_PART} 2>&1
     )
     unset RESPONSE_OK
     OFFLINE=1
 
-    case "${RTN}" in
+    RESPONSE_CODE=$( sed -n 's|.*HTTP/[^ ]* \([0-9]*\).*|\1|p' <<<{$RTN} )
+
+    case "${RESPONSE_CODE}" in
     2*)
         RESPONSE_OK=1
+        unset OFFLINE
         ;;
     4*)
         unset OFFLINE
@@ -68,7 +70,7 @@ function contact_server
     esac
 
     printf '"%s" << "%s"\n' ${URL_PART} "$@"
-    printf '.. "%s" (%s, %s)\n' "${RTN}" "${RESPONSE_OK}" "${OFFLINE}"
+    printf '.. "%s" (%s, %s)\n' "${RESPONSE_CODE}" "${RESPONSE_OK}" "${OFFLINE}"
 }
 
 function post_discord
