@@ -69,8 +69,8 @@ function contact_server
         ;;
     esac
 
-    printf '"%s" << "%s"\n' ${URL_PART} "$@"
-    printf '.. "%s" (%s, %s)\n' "${RESPONSE_CODE}" "${RESPONSE_OK}" "${OFFLINE}"
+    printf '%s: %s << "%s"\n' "$( date +%s )" "${URL_PART}" "$@"
+    printf '\t .. %s (%s, %s)\n' "${RESPONSE_CODE}" "${RESPONSE_OK}" "${OFFLINE}"
 }
 
 function post_discord
@@ -110,7 +110,7 @@ function open_door
 {
     echo opening door to $@
     echo "1" > "${GPIO_DEV}"
-    sleep 2
+    sleep 5
     echo "0" > "${GPIO_DEV}"
 }
 
@@ -118,6 +118,8 @@ function sync_cache
 {
     env | sed -n 's/^CACHE_/export CACHE_/p' > ${KEY_CACHE}
 }
+
+echo "Starting at $( date +%s )"
 
 # inform server of our start up
 contact_server node/boot
@@ -181,7 +183,8 @@ while true; do
             fi
         fi
     else
-        test $(( ${LOOP_TIME} + ${HEARTBEAT_RATE} )) -gt "$(date +%s)" && exit 1
+        # avoid spamming the server with heartbeats if something has gone wrong
+        test $(( ${LOOP_TIME} + ${HEARTBEAT_RATE} - 10 )) -ge "$( date +%s )" && echo -n '!!!' && exit 1
 
         # timed out whilst waiting - send a heartbeat
         # echo Idle for $((${HEARTBEAT_RATE} / 60)) mins - sending a heartbeat message to server
