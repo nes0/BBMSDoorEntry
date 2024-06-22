@@ -6,6 +6,7 @@ HEARTBEAT_RATE=900  # seconds
 # (BBMS stores the fob's vendor ID as well as the key number. Our USB reader
 #  doesn't give us this extra info, so we have to guess it.)
 PREFIXES="
+    5500000000
     BB00000000
     1900000000
     1700000000
